@@ -6,11 +6,12 @@
 pub mod ai;
 pub mod building;
 pub mod crafting;
+pub mod diving;
 pub mod ecs;
 pub mod entities;
 pub mod inventory;
 pub mod networking;
-pub mod diving;
 pub mod oxygen;
 pub mod pressure;
 pub mod survival;
+pub mod world;
