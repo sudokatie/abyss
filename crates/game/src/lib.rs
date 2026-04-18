@@ -4,6 +4,7 @@
 //! Built on the Lattice engine with underwater survival extensions.
 
 pub mod ai;
+pub mod bioluminescence;
 pub mod building;
 pub mod crafting;
 pub mod creatures;
