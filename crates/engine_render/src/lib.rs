@@ -9,6 +9,7 @@ pub mod ghost_block;
 pub mod lighting;
 mod renderer;
 pub mod sky;
+pub mod underwater;
 pub mod voxel;
 
 pub use renderer::{TriangleRenderer, Vertex};
