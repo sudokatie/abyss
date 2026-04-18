@@ -1,5 +1,5 @@
 [package]
-name = "lattice_game"
+name = "abyss_game"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

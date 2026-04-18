@@ -2,9 +2,9 @@
 //!
 //! Tests core functionality across multiple systems.
 
-use lattice_game::crafting::{CraftingStation, Recipe};
-use lattice_game::inventory::{Inventory, ItemId, ItemStack};
-use lattice_game::survival::{DamageSource, Health, Hunger};
+use abyss_game::crafting::{CraftingStation, Recipe};
+use abyss_game::inventory::{Inventory, ItemId, ItemStack};
+use abyss_game::survival::{DamageSource, Health, Hunger};
 
 /// Test inventory operations.
 mod inventory_tests {
