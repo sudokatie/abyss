@@ -3,9 +3,13 @@
 mod crosshair;
 mod debug_console;
 mod debug_overlay;
+mod depth_gauge;
 mod health_bar;
 mod hotbar;
 mod hunger_bar;
+mod light_meter;
+mod oxygen_bar;
+mod pressure_indicator;
 mod status_effects;
 mod tooltip;
 
@@ -14,9 +18,13 @@ pub use debug_console::{
     process_builtin_command, ConsoleAction, ConsoleLine, DebugConsole, LineKind,
 };
 pub use debug_overlay::{DebugLevel, DebugOverlay, DebugStats};
+pub use depth_gauge::DepthGauge;
 pub use health_bar::{draw_health_bar, HealthBarState};
 pub use hotbar::{draw_hotbar, HotbarSlot, ItemTextures};
 pub use hunger_bar::{draw_hunger_bar, HungerBarState};
+pub use light_meter::LightMeter;
+pub use oxygen_bar::OxygenBar;
+pub use pressure_indicator::PressureIndicator;
 pub use status_effects::{
     ActiveStatusEffect, StatusEffectKind, ICON_SIZE, draw_status_effects,
 };
