@@ -89,4 +89,141 @@ fn test_passive_creatures() {
     assert!(jelly.creature_type.contact_damage() > 0.0);
 }
 
+use crate::light::{LightInventory, PlayerLight, PlayerLightSource};
+use crate::survival::{PlayerDeathManager, RespawnPoint};
+use engine_network::protocol::{ClientMessage, ServerMessage};
+use glam::Vec3;
+
 use approx::assert_relative_eq;
+
+#[test]
+fn test_light_source_battery_drain() {
+    let mut inv = LightInventory::new();
+    inv.add(PlayerLightSource::new(PlayerLight::Headlamp));
+    inv.activate(0);
+
+    let initial_battery = inv.get(0).unwrap().battery_remaining;
+    assert_eq!(initial_battery, 1.0);
+
+    // Simulate 100 seconds of use
+    inv.update(100.0, 50.0);
+
+    let lamp = inv.get(0).unwrap();
+    // 100 seconds * 0.5% per second = 50% drain
+    assert!((lamp.battery_remaining - 0.5).abs() < 0.01);
+    assert!(lamp.active);
+}
+
+#[test]
+fn test_flare_expires() {
+    let mut flare = PlayerLightSource::new(PlayerLight::Flare);
+    flare.activate();
+    assert!(flare.active);
+    assert_eq!(flare.flare_remaining(), Some(30.0));
+
+    // Burn for 30 seconds
+    flare.update(30.0, 100.0);
+    assert!(!flare.active);
+    assert!(flare.is_depleted());
+}
+
+#[test]
+fn test_buddy_breath_request() {
+    // Verify the BuddyBreathRequest message can be constructed
+    let msg = ClientMessage::BuddyBreathRequest { target_id: 12345 };
+
+    // Verify it matches expected structure
+    if let ClientMessage::BuddyBreathRequest { target_id } = msg {
+        assert_eq!(target_id, 12345);
+    } else {
+        panic!("Expected BuddyBreathRequest variant");
+    }
+
+    // Also verify the server response messages exist
+    let oxygen_update = ServerMessage::PlayerOxygenUpdate {
+        player_id: 1,
+        oxygen: 75.0,
+        max_oxygen: 100.0,
+    };
+    if let ServerMessage::PlayerOxygenUpdate { player_id, oxygen, max_oxygen } = oxygen_update {
+        assert_eq!(player_id, 1);
+        assert_eq!(oxygen, 75.0);
+        assert_eq!(max_oxygen, 100.0);
+    }
+
+    let pressure_warning = ServerMessage::PressureWarning {
+        player_id: 1,
+        depth: 500.0,
+        zone_name: "Twilight Zone".to_string(),
+    };
+    if let ServerMessage::PressureWarning { player_id, depth, zone_name } = pressure_warning {
+        assert_eq!(player_id, 1);
+        assert_eq!(depth, 500.0);
+        assert_eq!(zone_name, "Twilight Zone");
+    }
+
+    let light_update = ServerMessage::PlayerLightUpdate {
+        player_id: 1,
+        light_type: "Headlamp".to_string(),
+        active: true,
+        range: 16.0,
+    };
+    if let ServerMessage::PlayerLightUpdate { player_id, light_type, active, range } = light_update {
+        assert_eq!(player_id, 1);
+        assert_eq!(light_type, "Headlamp");
+        assert!(active);
+        assert_eq!(range, 16.0);
+    }
+}
+
+#[test]
+fn test_death_and_respawn() {
+    let mut manager = PlayerDeathManager::new();
+    manager.add_respawn_point(RespawnPoint::new(Vec3::new(0.0, 0.0, 0.0)));
+
+    // Player starts alive
+    assert!(manager.is_alive());
+
+    // Player dies at depth
+    let death_pos = Vec3::new(100.0, -500.0, 200.0);
+    manager.die(death_pos);
+    assert!(manager.is_dying());
+
+    // Grace period expires
+    manager.update(10.0);
+    assert!(manager.is_dead());
+    assert_eq!(manager.death_count, 1);
+
+    // Respawn
+    let respawn_pos = manager.respawn();
+    assert!(respawn_pos.is_some());
+    assert!(manager.is_alive());
+
+    // Body can still be recovered after respawn
+    assert!(manager.can_recover_body());
+}
+
+#[test]
+fn test_respawn_at_base() {
+    let mut manager = PlayerDeathManager::new();
+
+    // Add a regular respawn point and a base respawn point
+    manager.add_respawn_point(RespawnPoint::new(Vec3::new(0.0, 0.0, 0.0)));
+    manager.add_respawn_point(RespawnPoint::at_base(
+        Vec3::new(500.0, -200.0, 500.0),
+        42,
+    ));
+
+    // Die and respawn
+    manager.die(Vec3::new(100.0, -300.0, 100.0));
+    manager.confirm_death();
+
+    // Should prefer the base respawn point
+    let best = manager.best_respawn_point().unwrap();
+    assert!(best.at_base);
+    assert_eq!(best.base_id, Some(42));
+
+    let respawn_pos = manager.respawn().unwrap();
+    assert_eq!(respawn_pos.x, 500.0);
+    assert_eq!(respawn_pos.y, -200.0);
+}

@@ -17,6 +17,18 @@ pub enum EntityKind {
     Spider,
     Creeper,
     DroppedItem,
+    // Abyss-specific creatures
+    SeaSnake,
+    Barracuda,
+    AnglerFish,
+    GiantSquid,
+    AbyssalLeviathan,
+    PressureCrawler,
+    TrenchWarden,
+    FishSchool,
+    SeaTurtle,
+    Jellyfish,
+    Whale,
 }
 
 /// Snapshot of a single entity's state.
@@ -131,5 +143,37 @@ pub enum ServerMessage {
         tick_rate: u32,
         /// World seed.
         seed: u64,
+    },
+
+    /// Broadcast player oxygen level to party members.
+    PlayerOxygenUpdate {
+        /// Player's network ID.
+        player_id: u64,
+        /// Current oxygen level.
+        oxygen: f32,
+        /// Maximum oxygen capacity.
+        max_oxygen: f32,
+    },
+
+    /// Alert party when a player enters a dangerous depth zone.
+    PressureWarning {
+        /// Player's network ID.
+        player_id: u64,
+        /// Current depth in meters.
+        depth: f32,
+        /// Name of the pressure zone.
+        zone_name: String,
+    },
+
+    /// Sync player light source state to nearby players.
+    PlayerLightUpdate {
+        /// Player's network ID.
+        player_id: u64,
+        /// Type of light source (e.g., "Headlamp", "Flare").
+        light_type: String,
+        /// Whether the light is currently active.
+        active: bool,
+        /// Light range in blocks.
+        range: f32,
     },
 }

@@ -66,4 +66,10 @@ pub enum ClientMessage {
         /// Chunk position to request.
         pos: ChunkPos,
     },
+
+    /// Request to share oxygen with a nearby player (buddy breathing).
+    BuddyBreathRequest {
+        /// Network ID of the target player to share oxygen with.
+        target_id: u64,
+    },
 }

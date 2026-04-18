@@ -275,6 +275,11 @@ impl LatticeServer {
                 // TODO: Integrate with world
                 debug!("Chunk request from {}: {:?}", client_id, pos);
             }
+
+            ClientMessage::BuddyBreathRequest { target_id } => {
+                // TODO: Implement buddy breathing oxygen sharing
+                debug!("Buddy breath request from {} to {}", client_id, target_id);
+            }
         }
     }
     

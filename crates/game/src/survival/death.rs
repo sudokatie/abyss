@@ -2,9 +2,13 @@
 //!
 //! Implements spec 6.5.1: on death, drop inventory at death location,
 //! respawn at spawn point with full health and hunger.
+//!
+//! Also implements spec 6.3: DeathState, RespawnPoint, DeathConsequences,
+//! and PlayerDeathManager for advanced death/respawn handling.
 
 use engine_core::coords::WorldPos;
-use engine_world::chunk::BlockId;
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
 
 use crate::inventory::{Inventory, ItemStack};
 
@@ -230,6 +234,282 @@ impl DroppedItem {
     }
 }
 
+// ============================================================================
+// Spec 6.3: Advanced Death and Respawn System
+// ============================================================================
+
+/// Current state of a player's life/death cycle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeathState {
+    /// Player is alive and active.
+    Alive,
+    /// Player is dying (grace period for potential rescue).
+    Dying,
+    /// Player is dead, waiting for respawn.
+    Dead,
+}
+
+impl Default for DeathState {
+    fn default() -> Self {
+        DeathState::Alive
+    }
+}
+
+/// A location where a player can respawn.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RespawnPoint {
+    /// World position of the respawn point.
+    pub position: Vec3,
+    /// Whether this respawn point is at an underwater base.
+    pub at_base: bool,
+    /// ID of the base (if at a base).
+    pub base_id: Option<u64>,
+}
+
+impl RespawnPoint {
+    /// Create a new respawn point at a position.
+    #[must_use]
+    pub fn new(position: Vec3) -> Self {
+        Self {
+            position,
+            at_base: false,
+            base_id: None,
+        }
+    }
+
+    /// Create a respawn point at a base.
+    #[must_use]
+    pub fn at_base(position: Vec3, base_id: u64) -> Self {
+        Self {
+            position,
+            at_base: true,
+            base_id: Some(base_id),
+        }
+    }
+}
+
+/// Consequences of player death.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DeathConsequences {
+    /// Whether unequipped items are lost on death.
+    pub lose_unequipped: bool,
+    /// Position of the player's body (for item recovery).
+    pub body_position: Option<Vec3>,
+    /// Timer for body recovery window in seconds.
+    pub recovery_timer: f64,
+}
+
+impl Default for DeathConsequences {
+    fn default() -> Self {
+        Self {
+            lose_unequipped: true,
+            body_position: None,
+            recovery_timer: 0.0,
+        }
+    }
+}
+
+impl DeathConsequences {
+    /// Create new death consequences.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Check if body recovery is still available.
+    #[must_use]
+    pub fn can_recover(&self) -> bool {
+        self.body_position.is_some() && self.recovery_timer > 0.0
+    }
+}
+
+/// Default grace period for dying state (seconds).
+pub const DYING_GRACE_PERIOD: f64 = 5.0;
+
+/// Default body recovery window (seconds).
+pub const BODY_RECOVERY_WINDOW: f64 = 300.0;
+
+/// Manager for player death state and respawning.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerDeathManager {
+    /// Current death state.
+    pub state: DeathState,
+    /// Available respawn points.
+    respawn_points: Vec<RespawnPoint>,
+    /// Current death consequences.
+    pub consequences: DeathConsequences,
+    /// Total number of deaths.
+    pub death_count: u32,
+    /// Timer for dying grace period.
+    dying_timer: f64,
+}
+
+impl Default for PlayerDeathManager {
+    fn default() -> Self {
+        Self {
+            state: DeathState::Alive,
+            respawn_points: Vec::new(),
+            consequences: DeathConsequences::default(),
+            death_count: 0,
+            dying_timer: 0.0,
+        }
+    }
+}
+
+impl PlayerDeathManager {
+    /// Create a new death manager.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Initiate the dying process.
+    ///
+    /// Places the player in the Dying state with a grace period.
+    /// If already dying or dead, this has no effect.
+    pub fn die(&mut self, body_position: Vec3) {
+        if self.state != DeathState::Alive {
+            return;
+        }
+
+        self.state = DeathState::Dying;
+        self.dying_timer = DYING_GRACE_PERIOD;
+        self.consequences.body_position = Some(body_position);
+        self.consequences.recovery_timer = BODY_RECOVERY_WINDOW;
+    }
+
+    /// Transition from Dying to Dead state immediately.
+    pub fn confirm_death(&mut self) {
+        if self.state == DeathState::Dying {
+            self.state = DeathState::Dead;
+            self.death_count += 1;
+            self.dying_timer = 0.0;
+        }
+    }
+
+    /// Respawn the player at the best available respawn point.
+    ///
+    /// Returns the respawn position, or None if no respawn points are available.
+    pub fn respawn(&mut self) -> Option<Vec3> {
+        if self.state != DeathState::Dead {
+            return None;
+        }
+
+        let respawn_pos = self.best_respawn_point().map(|rp| rp.position);
+
+        if respawn_pos.is_some() {
+            self.state = DeathState::Alive;
+            self.dying_timer = 0.0;
+            // Note: body recovery timer continues even after respawn
+        }
+
+        respawn_pos
+    }
+
+    /// Add a respawn point.
+    pub fn add_respawn_point(&mut self, point: RespawnPoint) {
+        self.respawn_points.push(point);
+    }
+
+    /// Remove a respawn point by base ID.
+    pub fn remove_respawn_point(&mut self, base_id: u64) {
+        self.respawn_points.retain(|p| p.base_id != Some(base_id));
+    }
+
+    /// Get all respawn points.
+    #[must_use]
+    pub fn respawn_points(&self) -> &[RespawnPoint] {
+        &self.respawn_points
+    }
+
+    /// Get the best respawn point (prefers base respawns).
+    #[must_use]
+    pub fn best_respawn_point(&self) -> Option<&RespawnPoint> {
+        // Prefer base respawn points, then any respawn point
+        self.respawn_points
+            .iter()
+            .find(|p| p.at_base)
+            .or_else(|| self.respawn_points.first())
+    }
+
+    /// Check if body can still be recovered.
+    #[must_use]
+    pub fn can_recover_body(&self) -> bool {
+        self.consequences.can_recover()
+    }
+
+    /// Attempt to recover the body (retrieve dropped items).
+    ///
+    /// Returns the body position if recovery is successful.
+    pub fn recover_body(&mut self) -> Option<Vec3> {
+        if !self.can_recover_body() {
+            return None;
+        }
+
+        let pos = self.consequences.body_position.take();
+        self.consequences.recovery_timer = 0.0;
+        pos
+    }
+
+    /// Update the death manager each frame.
+    pub fn update(&mut self, delta: f64) {
+        // Update dying timer
+        if self.state == DeathState::Dying {
+            self.dying_timer -= delta;
+            if self.dying_timer <= 0.0 {
+                self.confirm_death();
+            }
+        }
+
+        // Update body recovery timer
+        if self.consequences.recovery_timer > 0.0 {
+            self.consequences.recovery_timer -= delta;
+            if self.consequences.recovery_timer <= 0.0 {
+                self.consequences.body_position = None;
+            }
+        }
+    }
+
+    /// Get remaining dying grace period.
+    #[must_use]
+    pub fn dying_timer(&self) -> f64 {
+        self.dying_timer
+    }
+
+    /// Check if the player is alive.
+    #[must_use]
+    pub fn is_alive(&self) -> bool {
+        self.state == DeathState::Alive
+    }
+
+    /// Check if the player is in the dying state.
+    #[must_use]
+    pub fn is_dying(&self) -> bool {
+        self.state == DeathState::Dying
+    }
+
+    /// Check if the player is dead.
+    #[must_use]
+    pub fn is_dead(&self) -> bool {
+        self.state == DeathState::Dead
+    }
+
+    /// Rescue the player from dying state (buddy saves them).
+    ///
+    /// Returns true if rescue was successful.
+    pub fn rescue(&mut self) -> bool {
+        if self.state == DeathState::Dying {
+            self.state = DeathState::Alive;
+            self.dying_timer = 0.0;
+            self.consequences.body_position = None;
+            self.consequences.recovery_timer = 0.0;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,5 +663,148 @@ mod tests {
 
         assert_eq!(handler.last_death_pos(), Some(WorldPos::new(42, 64, 100)));
         assert_eq!(handler.last_death_cause(), Some(DeathCause::Fire));
+    }
+
+    // ========================================================================
+    // Tests for Spec 6.3: PlayerDeathManager
+    // ========================================================================
+
+    #[test]
+    fn test_death_state_transitions() {
+        let mut manager = PlayerDeathManager::new();
+        assert!(manager.is_alive());
+        assert_eq!(manager.state, DeathState::Alive);
+
+        manager.die(Vec3::new(10.0, -100.0, 20.0));
+        assert!(manager.is_dying());
+        assert_eq!(manager.state, DeathState::Dying);
+
+        manager.confirm_death();
+        assert!(manager.is_dead());
+        assert_eq!(manager.state, DeathState::Dead);
+        assert_eq!(manager.death_count, 1);
+    }
+
+    #[test]
+    fn test_dying_grace_period() {
+        let mut manager = PlayerDeathManager::new();
+        manager.die(Vec3::new(0.0, 0.0, 0.0));
+
+        assert!(manager.is_dying());
+        assert!((manager.dying_timer() - DYING_GRACE_PERIOD).abs() < 0.001);
+
+        // Update but not enough to expire
+        manager.update(2.0);
+        assert!(manager.is_dying());
+
+        // Update to expire grace period
+        manager.update(4.0);
+        assert!(manager.is_dead());
+    }
+
+    #[test]
+    fn test_respawn_points() {
+        let mut manager = PlayerDeathManager::new();
+
+        manager.add_respawn_point(RespawnPoint::new(Vec3::new(0.0, 0.0, 0.0)));
+        manager.add_respawn_point(RespawnPoint::at_base(Vec3::new(100.0, -50.0, 100.0), 42));
+
+        assert_eq!(manager.respawn_points().len(), 2);
+
+        // Best respawn should prefer base
+        let best = manager.best_respawn_point().unwrap();
+        assert!(best.at_base);
+        assert_eq!(best.base_id, Some(42));
+    }
+
+    #[test]
+    fn test_respawn_restores_alive() {
+        let mut manager = PlayerDeathManager::new();
+        manager.add_respawn_point(RespawnPoint::new(Vec3::new(50.0, 0.0, 50.0)));
+
+        manager.die(Vec3::new(0.0, 0.0, 0.0));
+        manager.confirm_death();
+        assert!(manager.is_dead());
+
+        let respawn_pos = manager.respawn();
+        assert!(respawn_pos.is_some());
+        assert!(manager.is_alive());
+    }
+
+    #[test]
+    fn test_body_recovery() {
+        let mut manager = PlayerDeathManager::new();
+        manager.add_respawn_point(RespawnPoint::new(Vec3::ZERO));
+
+        let body_pos = Vec3::new(10.0, -200.0, 30.0);
+        manager.die(body_pos);
+        manager.confirm_death();
+        manager.respawn();
+
+        assert!(manager.can_recover_body());
+        let recovered_pos = manager.recover_body();
+        assert_eq!(recovered_pos, Some(body_pos));
+        assert!(!manager.can_recover_body());
+    }
+
+    #[test]
+    fn test_body_recovery_expires() {
+        let mut manager = PlayerDeathManager::new();
+        manager.add_respawn_point(RespawnPoint::new(Vec3::ZERO));
+
+        manager.die(Vec3::new(0.0, 0.0, 0.0));
+        manager.confirm_death();
+        manager.respawn();
+
+        // Update past recovery window
+        manager.update(BODY_RECOVERY_WINDOW + 1.0);
+        assert!(!manager.can_recover_body());
+        assert!(manager.recover_body().is_none());
+    }
+
+    #[test]
+    fn test_rescue_from_dying() {
+        let mut manager = PlayerDeathManager::new();
+        manager.die(Vec3::new(0.0, 0.0, 0.0));
+        assert!(manager.is_dying());
+
+        let rescued = manager.rescue();
+        assert!(rescued);
+        assert!(manager.is_alive());
+        assert_eq!(manager.death_count, 0);
+    }
+
+    #[test]
+    fn test_cannot_rescue_when_dead() {
+        let mut manager = PlayerDeathManager::new();
+        manager.die(Vec3::new(0.0, 0.0, 0.0));
+        manager.confirm_death();
+
+        let rescued = manager.rescue();
+        assert!(!rescued);
+        assert!(manager.is_dead());
+    }
+
+    #[test]
+    fn test_remove_respawn_point() {
+        let mut manager = PlayerDeathManager::new();
+        manager.add_respawn_point(RespawnPoint::at_base(Vec3::ZERO, 1));
+        manager.add_respawn_point(RespawnPoint::at_base(Vec3::ONE, 2));
+        assert_eq!(manager.respawn_points().len(), 2);
+
+        manager.remove_respawn_point(1);
+        assert_eq!(manager.respawn_points().len(), 1);
+        assert_eq!(manager.respawn_points()[0].base_id, Some(2));
+    }
+
+    #[test]
+    fn test_no_respawn_without_points() {
+        let mut manager = PlayerDeathManager::new();
+        manager.die(Vec3::ZERO);
+        manager.confirm_death();
+
+        let pos = manager.respawn();
+        assert!(pos.is_none());
+        assert!(manager.is_dead()); // Still dead, no respawn point
     }
 }

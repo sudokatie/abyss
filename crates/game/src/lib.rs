@@ -12,6 +12,7 @@ pub mod diving;
 pub mod ecs;
 pub mod entities;
 pub mod inventory;
+pub mod light;
 pub mod networking;
 pub mod oxygen;
 pub mod pressure;

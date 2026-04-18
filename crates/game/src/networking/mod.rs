@@ -180,6 +180,21 @@ impl NetworkClient {
                 // Handled elsewhere
                 debug!("Received entity/chunk message");
             }
+
+            ServerMessage::PlayerOxygenUpdate { player_id, oxygen, max_oxygen } => {
+                // TODO: Update party member oxygen display in HUD
+                debug!("Player {player_id} oxygen: {oxygen}/{max_oxygen}");
+            }
+
+            ServerMessage::PressureWarning { player_id, depth, zone_name } => {
+                // TODO: Display pressure warning notification
+                debug!("Player {player_id} entered {zone_name} at depth {depth}m");
+            }
+
+            ServerMessage::PlayerLightUpdate { player_id, light_type, active, range } => {
+                // TODO: Update player light rendering
+                debug!("Player {player_id} light {light_type}: active={active}, range={range}");
+            }
         }
     }
     

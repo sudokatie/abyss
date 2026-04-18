@@ -10,7 +10,9 @@ pub use combat::{
     attempt_attack, calculate_knockback, can_attack, AttackCooldown, AttackResult, CombatStats,
 };
 pub use death::{
-    DeathCause, DeathHandler, DeathResult, DroppedItem, ITEM_DESPAWN_TIME, PICKUP_DELAY_SECS,
+    DeathCause, DeathConsequences, DeathHandler, DeathResult, DeathState, DroppedItem,
+    PlayerDeathManager, RespawnPoint, BODY_RECOVERY_WINDOW, DYING_GRACE_PERIOD,
+    ITEM_DESPAWN_TIME, PICKUP_DELAY_SECS,
 };
 pub use health::{DamageSource, Health};
 pub use hunger::Hunger;
