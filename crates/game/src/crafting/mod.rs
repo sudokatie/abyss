@@ -1,9 +1,11 @@
 //! Crafting system with recipes and execution.
 
+mod equipment;
 mod executor;
 mod furnace;
 mod registry;
 
+pub use equipment::{DivingEquipment, EquipmentSlot, EquipmentTier};
 pub use executor::{check_craft, execute_craft, execute_craft_by_id, CraftError, CraftRequirements};
 pub use furnace::{
     Furnace, FurnaceState, FuelEntry, DEFAULT_SMELT_TIME, FUEL_CHARCOAL, FUEL_COAL,
