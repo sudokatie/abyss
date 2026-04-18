@@ -40,7 +40,7 @@ impl BubbleParticle {
                 depth,
             ),
             size,
-            wobble_phase: (position[0] * 2.17 + position[2] * 5.31).rem_euclid(6.28),
+            wobble_phase: (position[0] * 2.17 + position[2] * 5.31).rem_euclid(std::f32::consts::TAU),
         }
     }
 

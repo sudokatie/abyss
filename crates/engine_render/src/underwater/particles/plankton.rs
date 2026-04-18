@@ -91,7 +91,7 @@ impl PlanktonParticle {
     #[must_use]
     pub fn new(position: [f32; 3], depth: f32) -> Self {
         let bio_level = BioluminescenceLevel::from_depth(depth);
-        let hash = (position[0] * 13.7 + position[2] * 29.3).rem_euclid(6.28);
+        let hash = (position[0] * 13.7 + position[2] * 29.3).rem_euclid(std::f32::consts::TAU);
         Self {
             state: ParticleState::new(
                 position,
