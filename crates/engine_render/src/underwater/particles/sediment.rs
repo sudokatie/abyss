@@ -44,7 +44,7 @@ impl SedimentParticle {
     /// Create sediment near ocean floor.
     #[must_use]
     pub fn from_floor(position: [f32; 3], depth: f32) -> Self {
-        let hash = ((position[0] * 11.7 + position[2] * 23.1).rem_euclid(1.0));
+        let hash = (position[0] * 11.7 + position[2] * 23.1).rem_euclid(1.0);
         let vx = (hash - 0.5) * SEDIMENT_SPREAD;
         let vz = ((hash * 3.7).rem_euclid(1.0) - 0.5) * SEDIMENT_SPREAD;
 
