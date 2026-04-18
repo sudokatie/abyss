@@ -11,4 +11,5 @@ pub mod entities;
 pub mod inventory;
 pub mod networking;
 pub mod oxygen;
+pub mod pressure;
 pub mod survival;
