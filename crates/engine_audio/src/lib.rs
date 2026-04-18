@@ -9,6 +9,7 @@ mod manager;
 mod music;
 mod sound;
 mod sound_pool;
+pub mod underwater;
 
 pub use ambient::{AmbientBiome, AmbientSound, AmbientSoundController, AMBIENT_CHECK_INTERVAL, AMBIENT_PLAY_CHANCE};
 pub use combat_music::{
@@ -22,3 +23,4 @@ pub use manager::{AudioManager, VolumeCategory};
 pub use music::{MusicPlayRequest, MusicPlayer, MusicRegistry, MusicState, MusicTrack, TrackId};
 pub use sound::{SoundId, SoundRegistry};
 pub use sound_pool::{PoolPick, SoundPool, SoundPoolRegistry, MAX_POOL_SIZE};
+pub use underwater::{UnderwaterAudio, UnderwaterEnvironment, UnderwaterAmbient, cutoff_at_depth, muffle_factor};

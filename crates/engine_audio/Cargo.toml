@@ -14,5 +14,8 @@ thiserror.workspace = true
 tracing.workspace = true
 rand.workspace = true
 
+[dev-dependencies]
+approx.workspace = true
+
 [lints]
 workspace = true
