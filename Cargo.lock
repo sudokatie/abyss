@@ -851,6 +851,7 @@ dependencies = [
 name = "engine_ai"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "engine_core",
  "glam",
  "serde",
