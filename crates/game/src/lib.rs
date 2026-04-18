@@ -17,3 +17,6 @@ pub mod oxygen;
 pub mod pressure;
 pub mod survival;
 pub mod world;
+
+#[cfg(test)]
+mod integration_tests;
