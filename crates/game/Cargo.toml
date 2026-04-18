@@ -30,3 +30,6 @@ ron.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+approx.workspace = true

@@ -23,6 +23,7 @@ name = "abyss_game"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "approx",
  "engine_ai",
  "engine_audio",
  "engine_core",
