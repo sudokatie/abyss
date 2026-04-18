@@ -90,6 +90,7 @@ fn test_passive_creatures() {
 }
 
 use crate::light::{LightInventory, PlayerLight, PlayerLightSource};
+use crate::profiling::{SystemProfiler, SystemName, PerformanceBudget, PerformanceReport};
 use crate::survival::{PlayerDeathManager, RespawnPoint};
 use engine_network::protocol::{ClientMessage, ServerMessage};
 use glam::Vec3;
@@ -226,4 +227,60 @@ fn test_respawn_at_base() {
     let respawn_pos = manager.respawn().unwrap();
     assert_eq!(respawn_pos.x, 500.0);
     assert_eq!(respawn_pos.y, -200.0);
+}
+
+#[test]
+fn test_profiling_system_timing() {
+    use std::thread;
+    use std::time::Duration;
+
+    let mut profiler = SystemProfiler::new();
+    profiler.begin_frame();
+
+    // Time a few systems
+    profiler.start(SystemName::Oxygen);
+    thread::sleep(Duration::from_millis(2));
+    profiler.end(SystemName::Oxygen);
+
+    profiler.start(SystemName::Creatures);
+    thread::sleep(Duration::from_millis(2));
+    profiler.end(SystemName::Creatures);
+
+    profiler.start(SystemName::AI);
+    thread::sleep(Duration::from_millis(2));
+    profiler.end(SystemName::AI);
+
+    profiler.end_frame();
+
+    // Verify report has data
+    let report = profiler.report();
+    assert!(report.per_system.contains_key(&SystemName::Oxygen));
+    assert!(report.per_system.contains_key(&SystemName::Creatures));
+    assert!(report.per_system.contains_key(&SystemName::AI));
+    assert!(report.total_frame_ms >= 5.0);
+    assert!(report.fps > 0.0);
+}
+
+#[test]
+fn test_performance_budget_check() {
+    use std::collections::HashMap;
+
+    let budget = PerformanceBudget::default();
+    assert_eq!(budget.target_fps, 60.0);
+
+    // Create a report that violates frame time (20ms = 50 FPS, under 60 FPS target)
+    let report = PerformanceReport {
+        per_system: HashMap::new(),
+        total_frame_ms: 20.0,
+        fps: 50.0,
+    };
+
+    let violations = budget.check(&report);
+    assert!(!violations.is_empty());
+
+    // Verify the violation is frame time exceeded
+    let has_frame_violation = violations.iter().any(|v| {
+        matches!(v, crate::profiling::BudgetViolation::FrameTimeExceeded { .. })
+    });
+    assert!(has_frame_violation);
 }

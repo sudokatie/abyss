@@ -16,6 +16,7 @@ pub mod light;
 pub mod networking;
 pub mod oxygen;
 pub mod pressure;
+pub mod profiling;
 pub mod survival;
 pub mod world;
 
