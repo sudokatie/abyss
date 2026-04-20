@@ -24,6 +24,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "approx",
+ "bincode",
  "engine_ai",
  "engine_audio",
  "engine_core",
