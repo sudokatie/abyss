@@ -1,5 +1,6 @@
 //! Crafting system with recipes and execution.
 
+mod ancient_altar;
 mod deep_forge;
 mod equipment;
 mod executor;
@@ -7,6 +8,7 @@ mod furnace;
 mod registry;
 mod weapons;
 
+pub use ancient_altar::{AncientAltar, AncientRecipe};
 pub use deep_forge::{DeepCraftingStation, DeepStation};
 pub use equipment::{DivingEquipment, EquipmentSlot, EquipmentTier};
 pub use weapons::{Weapon, WeaponType};
